@@ -1,0 +1,45 @@
+plugins {
+    id 'com.android.application'
+    id 'com.chaquo.python'
+}
+
+android {
+    namespace 'com.vertexbridge.local'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.vertexbridge.local'
+        minSdk 26
+        targetSdk 33
+        versionCode 1
+        versionName '0.1.0-preview'
+        ndk { abiFilters 'arm64-v8a' }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+chaquopy {
+    defaultConfig {
+        version = '3.12'
+        buildPython 'python3.12'
+        pip {
+            // Android ARM64 pydantic-core wheels from Flet index.
+            // Pydantic and pydantic-core versions MUST match.
+            options '--extra-index-url', 'https://pypi.flet.dev/'
+            install 'pydantic==2.13.4'
+            install 'pydantic-core==2.46.4'
+            install 'fastapi>=0.110.0,<1'
+            install 'uvicorn>=0.27.1,<1'
+            install 'pydantic-settings>=2.2.1,<3'
+            install 'google-genai>=2.0.0,<4'
+            install 'httpx[socks]>=0.25.0,<1'
+            install 'Pillow>=10.0.0,<13'
+            // Upstream requirements.txt includes curl_cffi, but the pinned
+            // source uses httpx directly and contains no curl_cffi import.
+            // Do not add unused native dependency without a compatibility test.
+        }
+    }
+}

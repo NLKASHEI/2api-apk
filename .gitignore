@@ -1,0 +1,27 @@
+.gradle/
+**/build/
+local.properties
+.idea/
+.DS_Store
+*.iml
+app/src/main/python/__pycache__/
+# Upstream code is populated by CI from pinned commit, not committed here.
+app/src/main/python/api_helpers.py
+app/src/main/python/auth.py
+app/src/main/python/config.py
+app/src/main/python/cookie_auth.py
+app/src/main/python/express_key_manager.py
+app/src/main/python/express_key_probe.py
+app/src/main/python/http_options.py
+app/src/main/python/logger.py
+app/src/main/python/main.py
+app/src/main/python/message_processing.py
+app/src/main/python/model_capabilities.py
+app/src/main/python/model_loader.py
+app/src/main/python/models.py
+app/src/main/python/resumable.py
+app/src/main/python/runtime_state.py
+app/src/main/python/schema_validation.py
+app/src/main/python/signature_store.py
+app/src/main/python/routes/
+app/src/main/python/upstreams/
