@@ -1,0 +1,74 @@
+name: Publish APK to GitHub Releases
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-release.yml'
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: 'Successful Build Android APK Actions run ID'
+        required: true
+        default: '38502265303'
+      version:
+        description: 'Release tag, e.g. v0.1.0-preview.1'
+        required: true
+        default: 'v0.1.0-preview.1'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Download APK from successful build
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.build_run_id || '38502265303' }}
+          RELEASE_TAG: ${{ inputs.version || 'v0.1.0-preview.1' }}
+        run: |
+          set -euo pipefail
+          [[ "$BUILD_RUN" =~ ^[0-9]+$ ]] || { echo 'Invalid run ID'; exit 1; }
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]] || { echo 'Invalid tag'; exit 1; }
+          status=$(gh run view "$BUILD_RUN" -R "$GITHUB_REPOSITORY" --json conclusion --jq '.conclusion')
+          test "$status" = success || { echo "Build $BUILD_RUN is not successful ($status)"; exit 1; }
+          gh run download "$BUILD_RUN" -R "$GITHUB_REPOSITORY" -n "Vertex2OpenAI-Android-arm64-debug" -D dist
+          test -s dist/app-debug.apk
+          mv dist/app-debug.apk "dist/Vertex2OpenAI-SillyTavern-arm64-${RELEASE_TAG}.apk"
+          gh run view "$BUILD_RUN" -R "$GITHUB_REPOSITORY" --json headSha --jq '.headSha' > /tmp/source-sha
+          sha256sum dist/*.apk
+
+      - name: Create prerelease with installable APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.build_run_id || '38502265303' }}
+          RELEASE_TAG: ${{ inputs.version || 'v0.1.0-preview.1' }}
+        run: |
+          set -euo pipefail
+          apk="dist/Vertex2OpenAI-SillyTavern-arm64-${RELEASE_TAG}.apk"
+          source_sha=$(cat /tmp/source-sha)
+          cat > /tmp/release-notes.md <<EOF
+          ## Vertex2OpenAI Android Bridge for SillyTavern
+
+          **Android ARM64** (Android 8.0+), locally running OpenAI-compatible proxy.
+
+          - Install the attached **APK** directly; no need to download the Actions artifact ZIP.
+          - Start the bridge app and use its local dashboard to configure your own Google Express API key or Google Cloud Cookie.
+          - SillyTavern OpenAI-compatible URL: \`http://127.0.0.1:8050/v1\`
+          - API key: copy the randomly generated local password in the bridge app.
+          - Built from GitHub Actions run #${BUILD_RUN}, source commit ${source_sha}.
+
+          **Preview / debug-signed build, not yet verified on a physical Android phone.** Only runs on ARM64. Do not publish personal Google Cookies.
+          EOF
+          if gh release view "$RELEASE_TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$apk" -R "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$RELEASE_TAG" "$apk" -R "$GITHUB_REPOSITORY" --target "$source_sha" --title "Vertex2OpenAI Android ${RELEASE_TAG} (SillyTavern)" --notes-file /tmp/release-notes.md --prerelease
+          fi
+          gh release view "$RELEASE_TAG" -R "$GITHUB_REPOSITORY" --json url,isPrerelease,assets --jq '{url,isPrerelease,assets:[.assets[].name]}'
